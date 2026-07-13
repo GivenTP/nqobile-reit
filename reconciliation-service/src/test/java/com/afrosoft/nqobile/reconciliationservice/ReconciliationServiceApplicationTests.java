@@ -1,10 +1,10 @@
-package com.afrosoft.nqobile.complianceengine;
+package com.afrosoft.nqobile.reconciliationservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ComplianceEngineApplicationTests {
+class ReconciliationServiceApplicationTests {
 
     @Test
     void contextLoads() {
