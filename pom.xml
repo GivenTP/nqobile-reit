@@ -113,8 +113,8 @@
         </plugins>
     </build>
     <modules>
-        <module>compliance-engine</module>
         <module>discovery-server</module>
+        <module>compliance-engine</module>
         <module>distribution-service</module>
         <module>onboarding-and-kyc</module>
         <module>p2p-transfer-service</module>
