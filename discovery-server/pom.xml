@@ -7,9 +7,15 @@
         <artifactId>nqobile-reit</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>onboarding-and-kyc</artifactId>
-    <name>onboarding-and-kyc</name>
-    <description>onboarding-and-kyc</description>
+    <artifactId>discovery-server</artifactId>
+    <name>discovery-server</name>
+    <description>discovery-server</description>
     <url/>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
+        </dependency>
+    </dependencies>
 
 </project>
