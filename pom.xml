@@ -117,7 +117,7 @@
         <module>compliance-engine</module>
         <module>distribution-service</module>
         <module>onboarding-and-kyc</module>
-        <module>p2p-transfer-service</module>
+        <module>transfers-service</module>
         <module>reconciliation-service</module>
         <module>reporting-and-supervision</module>
         <module>subscriptions-and-payments</module>

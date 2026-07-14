@@ -1,0 +1,149 @@
+openapi: "3.0.3"
+info:
+  title: "NQOBILE Transfers Microservice"
+  description: "P2P unit transfer pre-checks and on-chain submission. Service: nqobile-transfer-svc"
+  version: "2.0.0"
+servers:
+  - url: "https://api-sandbox.nqobile.co.zw/api/v1"
+    description: "SECZim Sandbox Environment"
+  - url: "https://api.nqobile.co.zw/api/v1"
+    description: "Production (Polygon PoS Mainnet)"
+
+security:
+  - BearerAuth: []
+
+paths:
+  /transfers/pre-check:
+    post:
+      tags: ["Transfers"]
+      summary: "Pre-check P2P transfer eligibility"
+      description: "Validates compliance constraints and generates a signed 60s pre-check token."
+      operationId: "preCheckTransfer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferPreCheckRequest"
+      responses:
+        "200":
+          description: "Transfer is eligible. Pre-check token returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferPreCheckResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: "Transfer rejected due to regulatory compliance rule breach."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRejection"
+
+  /transfers/submit:
+    post:
+      tags: ["Transfers"]
+      summary: "Submit P2P transfer to blockchain"
+      description: "Dispatches the transaction to the Polygon blockchain using the valid pre-check token."
+      operationId: "submitTransfer"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferSubmitRequest"
+      responses:
+        "202":
+          description: "Transfer submitted successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferSubmitResponse"
+        "400":
+          description: "Pre-check token expired or invalid."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+          format: uuid
+
+    TransferPreCheckRequest:
+      type: object
+      required: [senderWallet, receiverWallet, tokenAmount]
+      properties:
+        senderWallet:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{40}$"
+        receiverWallet:
+          type: string
+          pattern: "^0x[a-fA-F0-9]{40}$"
+        tokenAmount:
+          type: string
+
+    TransferPreCheckResponse:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+        preCheckToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    TransferSubmitRequest:
+      type: object
+      required: [preCheckToken]
+      properties:
+        preCheckToken:
+          type: string
+
+    TransferSubmitResponse:
+      type: object
+      properties:
+        polygonTxHash:
+          type: string
+        status:
+          type: string
+        estimatedConfirmationSeconds:
+          type: integer
+
+    ComplianceRejection:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum: [SENDER_NOT_VERIFIED, RECEIVER_NOT_VERIFIED, SENDER_FROZEN, TRANSFER_CAP_EXCEEDED, HOLDING_CAP_EXCEEDED, JURISDICTION_NOT_PERMITTED]
+        detail:
+          type: string

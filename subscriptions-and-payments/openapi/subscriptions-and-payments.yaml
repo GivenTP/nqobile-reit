@@ -1,0 +1,291 @@
+openapi: "3.0.3"
+info:
+  title: "NQOBILE Subscriptions & Payments Microservice"
+  description: "Payment reference generation, PSP webhooks, and cooling-off management. Service: nqobile-payment-svc"
+  version: "2.0.0"
+servers:
+  - url: "https://api-sandbox.nqobile.co.zw/api/v1"
+    description: "SECZim Sandbox Environment"
+  - url: "https://api.nqobile.co.zw/api/v1"
+    description: "Production (Polygon PoS Mainnet)"
+
+security:
+  - BearerAuth: []
+
+paths:
+  /subscriptions/subscribe:
+    post:
+      tags: ["Subscriptions & Payments"]
+      summary: "Initiate a subscription"
+      description: "Creates a subscription intent and generates a unique bank payment reference."
+      operationId: "subscribe"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeRequest"
+      responses:
+        "201":
+          description: "Subscription created. Payment reference returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: "Suitability or KYC checks not complete."
+
+  /subscriptions/matching-feed:
+    get:
+      tags: ["Subscriptions & Payments"]
+      summary: "Get pending payment matching feed (Operator)"
+      description: "Returns unmatched payment references awaiting custodian bank confirmation."
+      operationId: "getMatchingFeed"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, MATCHED, RECONCILED, MINTED, REFUNDED, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: "Payment matching feed returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchingFeedResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /subscriptions/cancel/{orderId}:
+    post:
+      tags: ["Subscriptions & Payments"]
+      summary: "Cancel subscription / cooling-off refund"
+      description: "Cancels a pending subscription or triggers a cooling-off token burn and refund."
+      operationId: "cancelSubscription"
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  enum: [COOLING_OFF, INVESTOR_WITHDRAWAL, COMPLIANCE_BLOCK]
+      responses:
+        "200":
+          description: "Cancellation / refund initiated."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelResponse"
+        "400":
+          description: "Cooling-off window has expired."
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /webhooks/psp/payment:
+    post:
+      tags: ["Subscriptions & Payments"]
+      summary: "PSP payment notification webhook"
+      description: "Inbound webhook from Mobile Money / Card PSP."
+      operationId: "pspPaymentWebhook"
+      security: []
+      parameters:
+        - name: X-Webhook-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PspWebhookPayload"
+      responses:
+        "200":
+          description: "Webhook acknowledged."
+        "401":
+          description: "Invalid HMAC signature."
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+          format: uuid
+
+    SubscribeRequest:
+      type: object
+      required: [amountUsd, paymentRail, kidAcknowledged, kidVersion]
+      properties:
+        amountUsd:
+          type: number
+          minimum: 2
+        paymentRail:
+          type: string
+          enum: [BANK, ECO_CASH, CARD, CORRIDOR]
+        kidAcknowledged:
+          type: boolean
+        kidVersion:
+          type: string
+        corridorPartnerId:
+          type: string
+          nullable: true
+
+    SubscribeResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        paymentReference:
+          type: string
+        amountUsd:
+          type: number
+        paymentRail:
+          type: string
+        custodianBankDetails:
+          type: object
+          properties:
+            accountName:
+              type: string
+            bankName:
+              type: string
+            accountNumber:
+              type: string
+            reference:
+              type: string
+        coolingOffExpiresAt:
+          type: string
+          format: date-time
+        sofCheckRequired:
+          type: boolean
+
+    MatchingFeedResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              paymentReference:
+                type: string
+              userId:
+                type: string
+                format: uuid
+              amountUsd:
+                type: number
+              status:
+                type: string
+              paymentRail:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+
+    CancelResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        refundStatus:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, NOT_APPLICABLE]
+        estimatedRefundDays:
+          type: integer
+
+    PspWebhookPayload:
+      type: object
+      required: [eventType, paymentReference, amountUsd, currency, status]
+      properties:
+        eventType:
+          type: string
+          enum: [PAYMENT_SUCCESS, PAYMENT_FAILED, PAYMENT_REVERSED]
+        paymentReference:
+          type: string
+        amountUsd:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+        pspTransactionId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

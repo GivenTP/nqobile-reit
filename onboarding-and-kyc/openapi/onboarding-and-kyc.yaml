@@ -1,0 +1,338 @@
+openapi: "3.0.3"
+info:
+  title: "NQOBILE Onboarding & KYC Microservice"
+  description: "Account creation, OTP verification, document submission, and KYC status. Service: nqobile-onboard-svc"
+  version: "2.0.0"
+servers:
+  - url: "https://api-sandbox.nqobile.co.zw/api/v1"
+    description: "SECZim Sandbox Environment"
+  - url: "https://api.nqobile.co.zw/api/v1"
+    description: "Production (Polygon PoS Mainnet)"
+
+security:
+  - BearerAuth: []
+
+paths:
+  /onboard/register:
+    post:
+      tags: ["Onboarding & KYC"]
+      summary: "Register a new investor account"
+      description: |
+        Creates a new investor account with e-mail and OTP verification.
+        On success, the account enters the `REGISTERED` KYC state.
+      operationId: "registerInvestor"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: "Account created successfully. OTP sent to e-mail."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /onboard/verify-otp:
+    post:
+      tags: ["Onboarding & KYC"]
+      summary: "Verify e-mail OTP"
+      description: "Verifies the one-time password sent to the investor's e-mail."
+      operationId: "verifyOtp"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerifyRequest"
+      responses:
+        "200":
+          description: "OTP verified. JWT access token returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /onboard/documents:
+    post:
+      tags: ["Onboarding & KYC"]
+      summary: "Submit KYC documents"
+      description: "Uploads identity documents and triggers dual-vendor KYC verification."
+      operationId: "submitDocuments"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DocumentSubmitRequest"
+      responses:
+        "202":
+          description: "Documents accepted. KYC verification started asynchronously."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycSubmitResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: "File too large. Maximum 10 MB per document."
+
+  /onboard/status/{userId}:
+    get:
+      tags: ["Onboarding & KYC"]
+      summary: "Get KYC status"
+      description: "Returns the current KYC state machine status and ONCHAINID address."
+      operationId: "getKycStatus"
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "KYC status returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycStatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /onboard/resend-otp:
+    post:
+      tags: ["Onboarding & KYC"]
+      summary: "Resend OTP"
+      description: "Resends the e-mail OTP. Rate limited."
+      operationId: "resendOtp"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: "OTP resent."
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /webhooks/kyc/callback:
+    post:
+      tags: ["Onboarding & KYC"]
+      summary: "KYC vendor decision callback"
+      description: "Inbound webhook delivering the identity verification decision."
+      operationId: "kycVendorCallback"
+      security: []
+      parameters:
+        - name: X-Vendor-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycVendorCallback"
+      responses:
+        "200":
+          description: "Callback acknowledged."
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: "Bad Request"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: "Unauthorized"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "Not Found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: "Conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TooManyRequests:
+      description: "Too Many Requests"
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+          format: uuid
+
+    RegisterRequest:
+      type: object
+      required: [email, password, investorType, jurisdiction, acceptedTerms]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+        investorType:
+          type: string
+          enum: [RETAIL, DIASPORA, CORPORATE, HNWI]
+        jurisdiction:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        acceptedTerms:
+          type: boolean
+
+    RegisterResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        kycStatus:
+          type: string
+        message:
+          type: string
+
+    OtpVerifyRequest:
+      type: object
+      required: [userId, otp]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        otp:
+          type: string
+          minLength: 6
+          maxLength: 6
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+
+    DocumentSubmitRequest:
+      type: object
+      required: [documentType, documentFile]
+      properties:
+        documentType:
+          type: string
+          enum: [PASSPORT, NATIONAL_ID, DRIVERS_LICENSE, UTILITY_BILL, BANK_STATEMENT]
+        documentFile:
+          type: string
+          format: binary
+        selfie:
+          type: string
+          format: binary
+
+    KycSubmitResponse:
+      type: object
+      properties:
+        verificationId:
+          type: string
+          format: uuid
+        kycStatus:
+          type: string
+        estimatedCompletionMinutes:
+          type: integer
+
+    KycStatusResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        kycStatus:
+          type: string
+          enum: [REGISTERED, KYC_IN_PROGRESS, ENHANCED_DD, MANUAL_REVIEW, VERIFIED, SUSPENDED, TOKENS_FROZEN, REJECTED, OFF_BOARDED]
+        onchainIdAddress:
+          type: string
+          nullable: true
+        investorType:
+          type: string
+        jurisdiction:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    KycVendorCallback:
+      type: object
+      required: [verificationId, userId, decision]
+      properties:
+        verificationId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        decision:
+          type: string
+          enum: [APPROVED, REJECTED, REFER, ENHANCED_DD_REQUIRED]
+        livenessScore:
+          type: number
+        sanctionsHit:
+          type: boolean
+        pepHit:
+          type: boolean
+        vendorReference:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

@@ -1,0 +1,171 @@
+openapi: "3.0.3"
+info:
+  title: "NQOBILE Reporting & Supervision Microservice"
+  description: "Aggregations, account statements, and regulatory compliance reports. Service: nqobile-report-svc"
+  version: "2.0.0"
+servers:
+  - url: "https://api-sandbox.nqobile.co.zw/api/v1"
+    description: "SECZim Sandbox Environment"
+  - url: "https://api.nqobile.co.zw/api/v1"
+    description: "Production (Polygon PoS Mainnet)"
+
+security:
+  - BearerAuth: []
+
+paths:
+  /reports/pack/{period}:
+    get:
+      tags: ["Reporting & Supervision"]
+      summary: "Generate / download reporting pack"
+      description: "Generates legal PDF / Excel packs for regulatory review by Trustee or SECZim."
+      operationId: "getReportingPack"
+      parameters:
+        - name: period
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [PDF, XLSX, BOTH]
+            default: BOTH
+      responses:
+        "200":
+          description: "Reporting pack download URL returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportPackResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: "No data available."
+
+  /reports/portfolio/summary:
+    get:
+      tags: ["Reporting & Supervision"]
+      summary: "Get platform portfolio summary (Supervisor)"
+      description: "Retrieves consolidated platform KPIs including active users, tokenized caps, and metrics."
+      operationId: "getPortfolioSummary"
+      responses:
+        "200":
+          description: "Portfolio summary returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioSummary"
+
+  /reports/investors/{userId}/statement:
+    get:
+      tags: ["Reporting & Supervision"]
+      summary: "Get investor account statement"
+      description: "Produces statement sheets tracking ledger histories and ERC-3643 activity logs."
+      operationId: "getInvestorStatement"
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: "Statement returned."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestorStatement"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Forbidden:
+      description: "Forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+          format: uuid
+
+    ReportPackResponse:
+      type: object
+      properties:
+        period:
+          type: string
+        downloadUrl:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        fileSizeBytes:
+          type: integer
+
+    PortfolioSummary:
+      type: object
+      properties:
+        totalInvestors:
+          type: integer
+        verifiedInvestors:
+          type: integer
+        aumUsd:
+          type: number
+        totalTokenSupply:
+          type: string
+        distributionsPaidYtdUsd:
+          type: number
+        reportGeneratedAt:
+          type: string
+          format: date-time
+
+    InvestorStatement:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        balanceNqb:
+          type: string
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [MINT, BURN, TRANSFER_IN, TRANSFER_OUT, DISTRIBUTION]
+              amountNqb:
+                type: string
+              txHash:
+                type: string
+              timestamp:
+                type: string
+                format: date-time

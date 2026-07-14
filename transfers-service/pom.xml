@@ -7,7 +7,7 @@
         <artifactId>nqobile-reit</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>p2p-transfer-service</artifactId>
+    <artifactId>transfers-service</artifactId>
     <name>p2p-transfer-service</name>
     <description>p2p-transfer-service</description>
     <url/>
