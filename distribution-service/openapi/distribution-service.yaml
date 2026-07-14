@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: NQOBILE Distribution Service Microservice
+  description: "Computation and automated smart-contract execution of pro-rata asset rental yields."
+  version: 2.0.0
+paths:
+  /v1/distributions/calculate:
+    post:
+      summary: "Compute dry-run yield allocation based on record date snapshot"
+      operationId: calculateDistribution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculationRequest'
+      responses:
+        '200':
+          description: Dry-run calculation complete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+  /v1/distributions/{distributionId}/trustee-approval:
+    post:
+      summary: "Record mandatory Trustee validation sign-off"
+      operationId: approveDistribution
+      parameters:
+        - name: distributionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrusteeApprovalRequest'
+      responses:
+        '200':
+          description: Approval successfully logged; structural distribution unlocked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrusteeApprovalResponse'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+  /v1/distributions/{distributionId}/execute:
+    post:
+      summary: "Route payout execution payload to the Dividend Distributor smart contract"
+      operationId: executeDistribution
+      parameters:
+        - name: distributionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Smart-contract execution routine pipeline started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+components:
+  responses:
+    400BadRequest:
+      description: Invalid parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404NotFound:
+      description: Distribution reference not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    500InternalError:
+      description: Internal server processing error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    CalculationRequest:
+      type: object
+      required: [spvId, netDistributableIncome, recordDate]
+      properties:
+        spvId:
+          type: string
+          format: uuid
+        netDistributableIncome:
+          type: number
+          minimum: 0.01
+          example: 250000.00
+        recordDate:
+          type: string
+          format: date-time
+
+    CalculationResponse:
+      type: object
+      required: [distributionId, totalUnitsAtRecordDate, yieldPerUnit, totalAllocatedUSD]
+      properties:
+        distributionId:
+          type: string
+          format: uuid
+        totalUnitsAtRecordDate:
+          type: number
+          example: 100000
+        yieldPerUnit:
+          type: number
+          example: 2.50
+        totalAllocatedUSD:
+          type: number
+          example: 250000.00
+
+    TrusteeApprovalRequest:
+      type: object
+      required: [trusteeSignatureHex, signedBy]
+      properties:
+        trusteeSignatureHex:
+          type: string
+          example: "0x3045022100fa...ae2102"
+          description: Cryptographic ledger signature verifying payload correctness.
+        signedBy:
+          type: string
+          example: "Trustee-Corp-Sec-1"
+
+    TrusteeApprovalResponse:
+      type: object
+      required: [distributionId, status, verifiedAt]
+      properties:
+        distributionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: "APPROVED_FOR_RELEASE"
+        verifiedAt:
+          type: string
+          format: date-time
+
+    ExecutionResponse:
+      type: object
+      required: [onChainTxHash, status]
+      properties:
+        onChainTxHash:
+          type: string
+          example: "0x78a5c312...992ef"
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, FAILED]
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: "YIELD_MATH_ERROR"
+        message:
+          type: string
+          example: "Zero units available at matching record date snapshot."

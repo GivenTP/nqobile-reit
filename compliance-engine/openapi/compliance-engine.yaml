@@ -1,0 +1,231 @@
+openapi: 3.0.3
+info:
+  title: NQOBILE Compliance Engine Microservice
+  description: "Real-time AML/CFT/CPF screening, risk suitability profiling, and regulatory casework management."
+  version: 2.0.0
+paths:
+  /v1/compliance/screen-applicant:
+    post:
+      summary: Real-time applicant sanctions and PEP screening
+      operationId: screenApplicant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicantScreeningRequest'
+      responses:
+        '200':
+          description: Screening complete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicantScreeningResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+  /v1/compliance/screen-transaction:
+    post:
+      summary: Real-time transaction monitoring and anomaly screening
+      operationId: screenTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionScreeningRequest'
+      responses:
+        '200':
+          description: Transaction screening result evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionScreeningResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+  /v1/compliance/cases/{caseId}/disposition:
+    post:
+      summary: "Resolve flagged compliance cases (four-eyes authorization)"
+      operationId: resolveComplianceCase
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseDispositionRequest'
+      responses:
+        '200':
+          description: Case resolved and audit trail appended successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseDispositionResponse'
+        '400':
+          $ref: '#/components/responses/400BadRequest'
+        '404':
+          $ref: '#/components/responses/404NotFound'
+        '500':
+          $ref: '#/components/responses/500InternalError'
+
+components:
+  responses:
+    400BadRequest:
+      description: Invalid input data provided.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    500InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApplicantScreeningRequest:
+      type: object
+      required: [investorId, fullName, dateOfBirth, countryOfResidence, documentNumber]
+      properties:
+        investorId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+          example: "John Doe"
+        dateOfBirth:
+          type: string
+          format: date
+          example: "1985-06-15"
+        countryOfResidence:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "ZA"
+        documentNumber:
+          type: string
+          example: "A12345678B"
+
+    ApplicantScreeningResponse:
+      type: object
+      required: [disposition, confidenceScore, matchDetails]
+      properties:
+        disposition:
+          type: string
+          enum: [PASSED, MANUAL_REVIEW_REQUIRED, REJECTED]
+        confidenceScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 85.5
+        matchDetails:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchDetail'
+        caseId:
+          type: string
+          format: uuid
+          nullable: true
+
+    MatchDetail:
+      type: object
+      properties:
+        listName:
+          type: string
+          example: "OFAC_Sanctions_List"
+        matchedTerm:
+          type: string
+          example: "Johnathan Doe"
+        reasoning:
+          type: string
+          example: "High phonetic similarity to global PEP list."
+
+    TransactionScreeningRequest:
+      type: object
+      required: [investorId, amountUSD, paymentReference, transactionType]
+      properties:
+        investorId:
+          type: string
+          format: uuid
+        amountUSD:
+          type: number
+          minimum: 0.01
+          example: 15000.00
+        paymentReference:
+          type: string
+          example: "REF-9988231"
+        transactionType:
+          type: string
+          enum: [SUBSCRIPTION, TRANSFER, REDEMPTION]
+
+    TransactionScreeningResponse:
+      type: object
+      required: [approved, requiresSowEvidence]
+      properties:
+        approved:
+          type: boolean
+        flaggedReason:
+          type: string
+          nullable: true
+          example: "Transaction amount exceeds investor structural thresholds."
+        requiresSowEvidence:
+          type: boolean
+          description: Flag indicating if Source of Wealth documentation is requested.
+
+    CaseDispositionRequest:
+      type: object
+      required: [action, reviewerNotes, authorizedBy]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, DECLINE, ESCALATE]
+        reviewerNotes:
+          type: string
+          maxLength: 1000
+          example: "Verified physical passport copies. False positive confirmed."
+        authorizedBy:
+          type: string
+          description: "ID of second-line compliance officer enforcing 4-eyes authorization."
+          example: "MLRO-OFFICER-44"
+
+    CaseDispositionResponse:
+      type: object
+      required: [caseId, status, updatedTimestamp]
+      properties:
+        caseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: "CLOSED_PASSED"
+        updatedTimestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: "COMPLIANCE_VALIDATION_FAILED"
+        message:
+          type: string
+          example: "Required screening identification metrics missing."
