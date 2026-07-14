@@ -36,17 +36,10 @@
             <artifactId>hibernate-reactive-core</artifactId>
             <version>4.5.1.Final</version> <!-- Match your Spring/Vert.x baseline -->
         </dependency>
-        <!-- Vert.x Core -->
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-core</artifactId>
-            <version>4.5.11</version>
-        </dependency>
-        <!-- Vert.x Reactive PostgreSQL Client -->
         <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-pg-client</artifactId>
-            <version>4.5.11</version>
+            <version>5.1.4</version>
         </dependency>
     </dependencies>
 
