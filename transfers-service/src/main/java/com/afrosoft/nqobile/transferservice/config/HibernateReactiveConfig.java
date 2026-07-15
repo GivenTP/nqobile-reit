@@ -1,4 +1,4 @@
-package com.afrosoft.nqobile.reportingandsupervision.config;
+package com.afrosoft.nqobile.transferservice.config;
 
 import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManagerFactory;
@@ -58,7 +58,8 @@ public class HibernateReactiveConfig {
 
         // 6. Explicitly register your domain model entities
         MetadataSources metadataSources = new MetadataSources(registry);
-        metadataSources.addAnnotatedClass(com.afrosoft.nqobile.reportingandsupervision.model.RegulatoryAuditLog.class);
+//        metadataSources.addAnnotatedClass(com.afrosoft.nqobile.transferservice.model.Investor.class);
+//        metadataSources.addAnnotatedClass(com.afrosoft.nqobile.onboardingandkyc.model.KycApplication.class);
 
         Metadata metadata = metadataSources.buildMetadata();
 
@@ -75,3 +76,4 @@ public class HibernateReactiveConfig {
         }
     }
 }
+

@@ -17,6 +17,18 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.hibernate.reactive</groupId>
+            <artifactId>hibernate-reactive-core</artifactId>
+            <version>4.5.1.Final</version> <!-- Match your Spring/Vert.x baseline -->
+        </dependency>
+
+        <!-- Vert.x Reactive PostgreSQL Client -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-pg-client</artifactId>
+            <version>5.1.4</version>
+        </dependency>
         <!-- OpenApi -->
         <dependency>
             <groupId>org.openapitools</groupId>
