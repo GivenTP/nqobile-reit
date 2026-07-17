@@ -7,9 +7,9 @@
         <artifactId>nqobile-reit</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
-    <artifactId>suitability-service</artifactId>
-    <name>suitability-service</name>
-    <description>suitability-service</description>
+    <artifactId>spv-admin-service</artifactId>
+    <name>spv-admin-service</name>
+    <description>spv-admin-service</description>
     <url/>
     <dependencies>
         <dependency>
@@ -53,11 +53,11 @@
                         </goals>
                         <configuration>
                             <inputSpec>
-                                ${project.basedir}/openapi/suitability-service.yaml
+                                ${project.basedir}/openapi/svp-admin-service.yaml
                             </inputSpec>
                             <generatorName>spring</generatorName>
-                            <apiPackage>com.afrosoft.nqobile.suitabilityservice.api</apiPackage>
-                            <modelPackage>com.afrosoft.nqobile.suitabilityservice.model</modelPackage>
+                            <apiPackage>com.afrosoft.nqobile.svpadminservice.api</apiPackage>
+                            <modelPackage>com.afrosoft.nqobile.svpadminservice.model</modelPackage>
                             <supportingFilesToGenerate>
                                 ApiUtil.java
                             </supportingFilesToGenerate>
@@ -71,5 +71,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

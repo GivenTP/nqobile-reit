@@ -123,6 +123,8 @@
         <module>reconciliation-service</module>
         <module>reporting-and-supervision</module>
         <module>subscriptions-and-payments</module>
+        <module>suitability-service</module>
+        <module>spv-admin-service</module>
     </modules>
 
 </project>
