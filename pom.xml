@@ -125,6 +125,8 @@
         <module>subscriptions-and-payments</module>
         <module>suitability-service</module>
         <module>spv-admin-service</module>
+        <module>mint-gateway</module>
+        <module>api-gateway</module>
     </modules>
 
 </project>
